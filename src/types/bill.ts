@@ -3,7 +3,7 @@ export type Bill = {
   title: string;
   summary: string;
   congress: number;
-  chamber: "House" | "Senate";
+  originChamberCode: "H" | "S";
   status?: string;
   sponsors?: string[];
   cosineSimilarity?: number;

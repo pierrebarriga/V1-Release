@@ -1,3 +1,11 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  overflow-x: hidden;
+}
 .app-shell {
   min-height: 100vh;
   background:
@@ -43,7 +51,7 @@
 }
 
 h1 {
-  max-width: 760px;
+  max-width: 100%;
   font-size: clamp(2.7rem, 6vw, 5.7rem);
   line-height: 0.95;
   letter-spacing: -0.08em;
@@ -150,4 +158,101 @@ h1 {
   color: #667085;
   font-size: 0.85rem;
   font-weight: 700;
+}
+@media (max-width: 768px) {
+  .top-nav {
+    height: 64px;
+    padding: 0 20px;
+  }
+
+  .brand {
+    font-size: 1rem;
+  }
+
+  .hero {
+    min-height: auto;
+    padding: 44px 20px 56px;
+    align-items: flex-start;
+  }
+
+  .hero-content {
+    width: 100%;
+  }
+
+  h1 {
+    font-size: clamp(2.3rem, 13vw, 4rem);
+    line-height: 0.98;
+    letter-spacing: -0.06em;
+  }
+
+  .hero-copy {
+    font-size: 0.98rem;
+    line-height: 1.6;
+  }
+
+  .search-card {
+    margin-top: 32px;
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .toggle-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .toggle-row button {
+    width: 100%;
+  }
+
+  .search-input-row {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .search-input-row svg {
+    display: none;
+  }
+
+  .search-input-row input {
+    width: 100%;
+    font-size: 0.95rem;
+    text-align: left;
+  }
+
+  .search-input-row button {
+    width: 100%;
+  }
+
+  .results-section {
+    padding: 32px 20px;
+  }
+
+  .bill-card {
+    padding: 20px;
+  }
+
+  .bill-card h3 {
+    font-size: 1.15rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .hero {
+    padding: 36px 16px 48px;
+  }
+
+  h1 {
+    font-size: 2.45rem;
+  }
+
+  .search-card {
+    padding: 16px;
+  }
+
+  .eyebrow {
+    font-size: 0.7rem;
+  }
 }

@@ -28,31 +28,13 @@ export default function SearchPage() {
         <div className="hero-content">
           <p className="eyebrow">Congressional Semantic Search</p>
 
-          <h1>Search bills by meaning, not just keywords.</h1>
+          <h1>Search Bills by meaning, <br />not just keywords.</h1>
 
           <p className="hero-copy">
-            Explore legislation introduced in the 118th Congress across the
-            House and Senate. Search bill titles, summaries, and legislative
-            text using semantic similarity.
+            Search through bill text using semantic similarity. Bills currently include any legislation introduced in the 118th Congress in either the House or Senate.
           </p>
 
           <div className="search-card">
-            <div className="toggle-row">
-              <button
-                className={searchType === "titles" ? "active" : ""}
-                onClick={() => setSearchType("titles")}
-              >
-                Bill Titles
-              </button>
-
-              <button
-                className={searchType === "text" ? "active" : ""}
-                onClick={() => setSearchType("text")}
-              >
-                Bill Summaries or Text
-              </button>
-            </div>
-
             <label htmlFor="bill-search">Enter your search criteria</label>
 
             <div className="search-input-row">
@@ -82,7 +64,7 @@ export default function SearchPage() {
             {bills.map((bill) => (
               <article key={bill.id} className="bill-card">
                 <p className="bill-meta">
-                  {bill.congress}th Congress · {bill.chamber}
+                  {bill.congress}th Congress · Introduced in the {bill.originChamberCode === "H" ? "House" : "Senate"}
                 </p>
                 <h3>{bill.title}</h3>
                 <p>{bill.summary}</p>
