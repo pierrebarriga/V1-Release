@@ -5,7 +5,7 @@ import type { Bill } from "../types/bill";
 import "./SearchPage.css";
 export default function SearchPage() {
   const [query, setQuery] = useState("");
-  const [searchType, setSearchType] = useState<"titles" | "text">("titles");
+  const [] = useState<"titles" | "text">("titles");
   const [bills, setBills] = useState<Bill[]>([]);
   const [loading, setLoading] = useState(false);
 
