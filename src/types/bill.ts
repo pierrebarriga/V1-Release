@@ -1,9 +1,11 @@
 export type Bill = {
   id?: string;
   number?: string;
-  congress?: number;
+  congress?: 118 | 119;
+
   originChamberCode?: "H" | "S";
   chamber?: "House" | "Senate";
+
   title: string;
 
   summary?: string;

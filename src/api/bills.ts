@@ -1,10 +1,21 @@
 import type { Bill } from "../types/bill";
 
+export type CongressNumber = 118 | 119;
+export type ChamberName = "House" | "Senate";
+
+type SearchOptions = {
+  congresses: CongressNumber[];
+  chambers: ChamberName[];
+};
+
 type SearchResponse = {
   results: Bill[];
 };
 
-export async function searchBills(query: string): Promise<Bill[]> {
+export async function searchBills(
+  query: string,
+  options: SearchOptions,
+): Promise<Bill[]> {
   const apiUrl = import.meta.env.VITE_API_URL;
 
   if (!apiUrl) {
@@ -20,23 +31,20 @@ export async function searchBills(query: string): Promise<Bill[]> {
       query,
       match_count: 10,
       match_threshold: 0,
+      congresses: options.congresses,
+      chambers: options.chambers,
     }),
   });
 
-  const responseBody = await response.json().catch(() => null);
+  const body = await response.json().catch(() => null);
 
   if (!response.ok) {
-    console.error("Semantic search API error:", responseBody);
-
     throw new Error(
-      responseBody?.detail ||
-        `Semantic search failed with status ${response.status}`,
+      body?.detail || `Search failed with status ${response.status}`,
     );
   }
 
-  const data = responseBody as SearchResponse;
-
-  console.log("Semantic search response:", data);
+  const data = body as SearchResponse;
 
   return data.results ?? [];
 }
