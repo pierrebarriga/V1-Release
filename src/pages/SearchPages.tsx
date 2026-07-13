@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { searchBills } from "../api/bills";
 import type { Bill } from "../types/bill";
@@ -15,7 +15,9 @@ export default function SearchPage() {
   const chamber = bills.length > 0 ? (bills[0].originChamberCode === "H" || bills[0].chamber === "House" ? "House" : "Senate") : "House";
   const billPrefix = chamber === "House" ? "H.R." : "S.";
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
-
+  const [pdfPanelHeight, setPdfPanelHeight] = useState(0);
+  const pdfPanelRef = useRef<HTMLDivElement | null>(null);
+  const resultsGridRef = useRef<HTMLDivElement | null>(null);
   async function handleSearch() {
     if (!query.trim()) return;
 
@@ -30,7 +32,23 @@ export default function SearchPage() {
       setLoading(false);
     }
   }
+  useEffect(() => {
+    if (!selectedPdf || !pdfPanelRef.current) {
+      setPdfPanelHeight(0);
+      return;
+    }
 
+    const updateHeight = () => {
+      setPdfPanelHeight(pdfPanelRef.current?.offsetHeight ?? 0);
+    };
+
+    updateHeight();
+
+    const resizeObserver = new ResizeObserver(updateHeight);
+    resizeObserver.observe(pdfPanelRef.current);
+
+    return () => resizeObserver.disconnect();
+  }, [selectedPdf]);
   return (
     <main className="app-shell">
       <nav className="top-nav">
@@ -80,12 +98,21 @@ export default function SearchPage() {
         <section className="results-section">
           <h2>Search Results</h2>
 
-          <div className="results-layout">
-            <div className="results-grid">
+          <div
+  className="results-layout"
+  style={{
+    paddingBottom: `${Math.max(
+      0,
+      pdfTop +
+        pdfPanelHeight -
+        (resultsGridRef.current?.offsetHeight ?? 0)
+    )}px`,
+  }}
+>
+            <div ref={resultsGridRef} className="results-grid">
               {bills.map((bill) => {
-                const billKey = `${
-                  bill.originChamberCode || bill.chamber || "bill"
-                }-${bill.number || bill.id || bill.title}`;
+                const billKey = `${bill.originChamberCode || bill.chamber || "bill"
+                  }-${bill.number || bill.id || bill.title}`;
 
                 const billPreview =
                   bill.summary ||
@@ -108,13 +135,12 @@ export default function SearchPage() {
                       cardRefs.current[billKey] = el;
                     }}
                     key={billKey}
-                    className={`bill-card ${
-                      selectedBillKey === billKey ? "selected" : ""
-                    }`}
+                    className={`bill-card ${selectedBillKey === billKey ? "selected" : ""
+                      }`}
                   >
                     <p className="bill-meta">
-  {billPrefix} {bill.number} · 118th Congress · Introduced in the {chamber}
-</p>
+                      {billPrefix} {bill.number} · 118th Congress · Introduced in the {chamber}
+                    </p>
 
                     <h3
                       className={pdfUrl ? "bill-link" : ""}
@@ -141,7 +167,6 @@ export default function SearchPage() {
 
                     <p>{billPreview.slice(0, 350)}...</p>
 
-                    {!pdfUrl && <p className="no-pdf">PDF not available yet</p>}
 
                     {selectedBillKey === billKey && selectedPdf && (
                       <div className="mobile-pdf-panel">
@@ -153,7 +178,11 @@ export default function SearchPage() {
               })}
             </div>
 
-            <div className="pdf-panel" style={{ top: `${pdfTop}px` }}>
+            <div
+              ref={pdfPanelRef}
+              className="pdf-panel"
+              style={{ top: `${pdfTop}px` }}
+            >
               {selectedPdf ? (
                 <PdfViewer url={selectedPdf} />
               ) : (
