@@ -1,16 +1,42 @@
-import { supabase } from "./SupabaseClient";
 import type { Bill } from "../types/bill";
 
-export async function searchBills(query: string): Promise<Bill[]> {
-  const { data, error } = await supabase
-    .from("L2_senate_bills")
-    .select("*")
-    .ilike("title", `%${query}%`)
-    .limit(25);
+type SearchResponse = {
+  results: Bill[];
+};
 
-  if (error) {
-    throw error;
+export async function searchBills(query: string): Promise<Bill[]> {
+  const apiUrl = import.meta.env.VITE_API_URL;
+
+  if (!apiUrl) {
+    throw new Error("VITE_API_URL is missing.");
   }
 
-  return data ?? [];
+  const response = await fetch(`${apiUrl}/search`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query,
+      match_count: 10,
+      match_threshold: 0,
+    }),
+  });
+
+  const responseBody = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    console.error("Semantic search API error:", responseBody);
+
+    throw new Error(
+      responseBody?.detail ||
+        `Semantic search failed with status ${response.status}`,
+    );
+  }
+
+  const data = responseBody as SearchResponse;
+
+  console.log("Semantic search response:", data);
+
+  return data.results ?? [];
 }

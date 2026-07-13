@@ -12,7 +12,8 @@ export default function SearchPage() {
   const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
   const [selectedBillKey, setSelectedBillKey] = useState<string | null>(null);
   const [pdfTop, setPdfTop] = useState(0);
-
+  const chamber = bills.length > 0 ? (bills[0].originChamberCode === "H" || bills[0].chamber === "House" ? "House" : "Senate") : "House";
+  const billPrefix = chamber === "House" ? "H.R." : "S.";
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
 
   async function handleSearch() {
@@ -112,8 +113,8 @@ export default function SearchPage() {
                     }`}
                   >
                     <p className="bill-meta">
-                      118th Congress · Introduced in the {chamber}
-                    </p>
+  {billPrefix} {bill.number} · 118th Congress · Introduced in the {chamber}
+</p>
 
                     <h3
                       className={pdfUrl ? "bill-link" : ""}
