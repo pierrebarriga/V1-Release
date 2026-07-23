@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Search, Star } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Search, Star, X } from "lucide-react";
 import { searchBills } from "../api/bills";
 import type { Bill } from "../types/bill";
 import PdfViewer from "../components/PdfViewer";
@@ -7,6 +7,14 @@ import "./SearchPage.css";
 
 type CongressNumber = 118 | 119;
 type ChamberName = "House" | "Senate";
+
+const STATUS_OPTIONS = [
+  "Introduced",
+  "Passed Senate",
+  "Passed House",
+  "President",
+  "Became Law",
+] as const;
 
 export default function SearchPage() {
   const [query, setQuery] = useState("");
@@ -23,28 +31,16 @@ export default function SearchPage() {
     "Senate",
   ]);
 
-  const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
-  const [selectedBillKey, setSelectedBillKey] = useState<string | null>(null);
-
-  const [pdfTop, setPdfTop] = useState(0);
-  const [pdfPanelHeight, setPdfPanelHeight] = useState(0);
-
-  const cardRefs = useRef<Record<string, HTMLElement | null>>({});
-  const pdfPanelRef = useRef<HTMLDivElement | null>(null);
-  const resultsGridRef = useRef<HTMLDivElement | null>(null);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([
+    ...STATUS_OPTIONS,
+  ]);
 
   const [congressMenuOpen, setCongressMenuOpen] = useState(false);
-const [chamberMenuOpen, setChamberMenuOpen] = useState(false);
+  const [chamberMenuOpen, setChamberMenuOpen] = useState(false);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
 
-const [selectedStatuses, setSelectedStatuses] = useState<string[]>([
-  "Introduced",
-  "Passed Senate",
-  "Passed House",
-  "President",
-  "Became Law",
-]);
-
-const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
+  const [selectedBillKey, setSelectedBillKey] = useState<string | null>(null);
 
   function toggleCongress(congress: CongressNumber) {
     setSelectedCongresses((current) =>
@@ -61,13 +57,21 @@ const [statusMenuOpen, setStatusMenuOpen] = useState(false);
         : [...current, chamber],
     );
   }
-function toggleStatus(status: string) {
-  setSelectedStatuses((current) =>
-    current.includes(status)
-      ? current.filter((item) => item !== status)
-      : [...current, status]
-  );
-}
+
+  function toggleStatus(status: string) {
+    setSelectedStatuses((current) =>
+      current.includes(status)
+        ? current.filter((item) => item !== status)
+        : [...current, status],
+    );
+  }
+
+  function closeAllFilterMenus() {
+    setCongressMenuOpen(false);
+    setChamberMenuOpen(false);
+    setStatusMenuOpen(false);
+  }
+
   async function handleSearch() {
     const cleanedQuery = query.trim();
 
@@ -90,7 +94,7 @@ function toggleStatus(status: string) {
     setSearchError(null);
     setSelectedPdf(null);
     setSelectedBillKey(null);
-    setPdfTop(0);
+    closeAllFilterMenus();
 
     try {
       const results = await searchBills(cleanedQuery, {
@@ -113,32 +117,38 @@ function toggleStatus(status: string) {
     }
   }
 
-  useEffect(() => {
-    if (!selectedPdf || !pdfPanelRef.current) {
-      setPdfPanelHeight(0);
-      return;
+  function closePdfModal() {
+    setSelectedPdf(null);
+    setSelectedBillKey(null);
+  }
+
+  function getPdfViewerUrl(pdfUrl: string) {
+    if (pdfUrl.includes("/pdf?url=")) {
+      return pdfUrl;
     }
 
-    const updateHeight = () => {
-      setPdfPanelHeight(pdfPanelRef.current?.offsetHeight ?? 0);
-    };
+    return `${import.meta.env.VITE_API_URL}/pdf?url=${encodeURIComponent(
+      pdfUrl,
+    )}`;
+  }
 
-    updateHeight();
+  useEffect(() => {
+    if (!selectedPdf) return;
 
-    const resizeObserver = new ResizeObserver(updateHeight);
-    resizeObserver.observe(pdfPanelRef.current);
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closePdfModal();
+      }
+    }
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleEscape);
 
     return () => {
-      resizeObserver.disconnect();
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleEscape);
     };
   }, [selectedPdf]);
-
-  const resultsGridHeight = resultsGridRef.current?.offsetHeight ?? 0;
-
-  const extraBottomSpace = Math.max(
-    0,
-    pdfTop + pdfPanelHeight - resultsGridHeight,
-  );
 
   return (
     <main className="app-shell">
@@ -163,202 +173,173 @@ function toggleStatus(status: string) {
           </p>
 
           <div className="filters-card">
-  <div className="filter-dropdown">
-    <button
-      type="button"
-      className="filter-dropdown-trigger"
-      onClick={() => {
-        setCongressMenuOpen((o) => !o);
-setChamberMenuOpen(false);
-setStatusMenuOpen(false);
-      }}
-      aria-expanded={congressMenuOpen}
-    >
-      <span>
-        Congress
-        <strong>
-          {selectedCongresses.length === 2
-            ? "All"
-            : selectedCongresses.map((item) => `${item}th`).join(", ")}
-        </strong>
-      </span>
+            <div className="filter-dropdown">
+              <button
+                type="button"
+                className="filter-dropdown-trigger"
+                onClick={() => {
+                  setCongressMenuOpen((current) => !current);
+                  setChamberMenuOpen(false);
+                  setStatusMenuOpen(false);
+                }}
+                aria-expanded={congressMenuOpen}
+              >
+                <span>
+                  Congress
+                  <strong>
+                    {selectedCongresses.length === 2
+                      ? "All"
+                      : selectedCongresses
+                          .map((item) => `${item}th`)
+                          .join(", ")}
+                  </strong>
+                </span>
 
-      <span aria-hidden="true">⌄</span>
-    </button>
+                <span aria-hidden="true">⌄</span>
+              </button>
 
-    {congressMenuOpen && (
-      <div className="filter-dropdown-menu">
-        <label className="dropdown-option">
-          <input
-            type="checkbox"
-            checked={selectedCongresses.includes(118)}
-            onChange={() => toggleCongress(118)}
-          />
-          <span>118th Congress</span>
-        </label>
+              {congressMenuOpen && (
+                <div className="filter-dropdown-menu">
+                  <label className="dropdown-option">
+                    <input
+                      type="checkbox"
+                      checked={selectedCongresses.includes(118)}
+                      onChange={() => toggleCongress(118)}
+                    />
+                    <span>118th Congress</span>
+                  </label>
 
-        <label className="dropdown-option">
-          <input
-            type="checkbox"
-            checked={selectedCongresses.includes(119)}
-            onChange={() => toggleCongress(119)}
-          />
-          <span>119th Congress</span>
-        </label>
-      </div>
-    )}
-  </div>
-<div className="filter-dropdown">
-  <button
-    type="button"
-    className="filter-dropdown-trigger"
-    onClick={() => {
-      setStatusMenuOpen((o) => !o);
-      setCongressMenuOpen(false);
-      setChamberMenuOpen(false);
-    }}
-  >
-    <span>
-      Status
-      <strong>
-        {selectedStatuses.length === 5
-          ? "All"
-          : `${selectedStatuses.length} selected`}
-      </strong>
-    </span>
+                  <label className="dropdown-option">
+                    <input
+                      type="checkbox"
+                      checked={selectedCongresses.includes(119)}
+                      onChange={() => toggleCongress(119)}
+                    />
+                    <span>119th Congress</span>
+                  </label>
+                </div>
+              )}
+            </div>
 
-    <span>⌄</span>
-  </button>
+            <div className="filter-dropdown">
+              <button
+                type="button"
+                className="filter-dropdown-trigger"
+                onClick={() => {
+                  setChamberMenuOpen((current) => !current);
+                  setCongressMenuOpen(false);
+                  setStatusMenuOpen(false);
+                }}
+                aria-expanded={chamberMenuOpen}
+              >
+                <span>
+                  Origin chamber
+                  <strong>
+                    {selectedChambers.length === 2
+                      ? "All"
+                      : selectedChambers.join(", ")}
+                  </strong>
+                </span>
 
-  {statusMenuOpen && (
-    <div className="filter-dropdown-menu">
-      <label className="dropdown-option">
-        <input
-          type="checkbox"
-          checked={selectedStatuses.includes("Introduced")}
-          onChange={() => toggleStatus("Introduced")}
-        />
-        <span>Introduced</span>
-      </label>
+                <span aria-hidden="true">⌄</span>
+              </button>
 
-      <label className="dropdown-option">
-        <input
-          type="checkbox"
-          checked={selectedStatuses.includes("Passed Senate")}
-          onChange={() => toggleStatus("Passed Senate")}
-        />
-        <span>Passed Senate</span>
-      </label>
+              {chamberMenuOpen && (
+                <div className="filter-dropdown-menu">
+                  <label className="dropdown-option">
+                    <input
+                      type="checkbox"
+                      checked={selectedChambers.includes("House")}
+                      onChange={() => toggleChamber("House")}
+                    />
+                    <span>House</span>
+                  </label>
 
-      <label className="dropdown-option">
-        <input
-          type="checkbox"
-          checked={selectedStatuses.includes("Passed House")}
-          onChange={() => toggleStatus("Passed House")}
-        />
-        <span>Passed House</span>
-      </label>
+                  <label className="dropdown-option">
+                    <input
+                      type="checkbox"
+                      checked={selectedChambers.includes("Senate")}
+                      onChange={() => toggleChamber("Senate")}
+                    />
+                    <span>Senate</span>
+                  </label>
+                </div>
+              )}
+            </div>
 
-      <label className="dropdown-option">
-        <input
-          type="checkbox"
-          checked={selectedStatuses.includes("President")}
-          onChange={() => toggleStatus("President")}
-        />
-        <span>President</span>
-      </label>
+            <div className="filter-dropdown">
+              <button
+                type="button"
+                className="filter-dropdown-trigger"
+                onClick={() => {
+                  setStatusMenuOpen((current) => !current);
+                  setCongressMenuOpen(false);
+                  setChamberMenuOpen(false);
+                }}
+                aria-expanded={statusMenuOpen}
+              >
+                <span>
+                  Status
+                  <strong>
+                    {selectedStatuses.length === STATUS_OPTIONS.length
+                      ? "All"
+                      : `${selectedStatuses.length} selected`}
+                  </strong>
+                </span>
 
-      <label className="dropdown-option">
-        <input
-          type="checkbox"
-          checked={selectedStatuses.includes("Became Law")}
-          onChange={() => toggleStatus("Became Law")}
-        />
-        <span>Became Law</span>
-      </label>
-    </div>
-  )}
-</div>
-  <div className="filter-dropdown">
-    <button
-      type="button"
-      className="filter-dropdown-trigger"
-      onClick={() => {
-       setChamberMenuOpen((o) => !o);
-setCongressMenuOpen(false);
-setStatusMenuOpen(false);
-      }}
-      aria-expanded={chamberMenuOpen}
-    >
-      <span>
-        Origin chamber
-        <strong>
-          {selectedChambers.length === 2
-            ? "All"
-            : selectedChambers.join(", ")}
-        </strong>
-      </span>
+                <span aria-hidden="true">⌄</span>
+              </button>
 
-      <span aria-hidden="true">⌄</span>
-    </button>
+              {statusMenuOpen && (
+                <div className="filter-dropdown-menu">
+                  {STATUS_OPTIONS.map((status) => (
+                    <label className="dropdown-option" key={status}>
+                      <input
+                        type="checkbox"
+                        checked={selectedStatuses.includes(status)}
+                        onChange={() => toggleStatus(status)}
+                      />
+                      <span>{status}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
-    {chamberMenuOpen && (
-      <div className="filter-dropdown-menu">
-        <label className="dropdown-option">
-          <input
-            type="checkbox"
-            checked={selectedChambers.includes("House")}
-            onChange={() => toggleChamber("House")}
-          />
-          <span>House</span>
-        </label>
+          <div className="search-card">
+            <label htmlFor="bill-search">Enter your search criteria</label>
 
-        <label className="dropdown-option">
-          <input
-            type="checkbox"
-            checked={selectedChambers.includes("Senate")}
-            onChange={() => toggleChamber("Senate")}
-          />
-          <span>Senate</span>
-        </label>
-      </div>
-    )}
-  </div>
-</div>
+            <div className="search-input-row">
+              <Search size={20} aria-hidden="true" />
 
-<div className="search-card">
-  <label htmlFor="bill-search">Enter your search criteria</label>
+              <input
+                id="bill-search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder='Try "AI and Taiwan" or "election integrity"'
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !loading) {
+                    handleSearch();
+                  }
+                }}
+              />
 
-  <div className="search-input-row">
-    <Search size={20} aria-hidden="true" />
+              <button
+                type="button"
+                onClick={handleSearch}
+                disabled={loading}
+              >
+                {loading ? "Searching..." : "Search"}
+              </button>
+            </div>
 
-    <input
-      id="bill-search"
-      value={query}
-      onChange={(event) => setQuery(event.target.value)}
-      placeholder='Try "AI and Taiwan" or "election integrity"'
-      onKeyDown={(event) => {
-        if (event.key === "Enter" && !loading) {
-          handleSearch();
-        }
-      }}
-    />
-
-    <button
-      type="button"
-      onClick={handleSearch}
-      disabled={loading}
-    >
-      {loading ? "Searching..." : "Search"}
-    </button>
-  </div>
-
-  {searchError && (
-    <p className="search-error" role="alert">
-      {searchError}
-    </p>
-  )}
-</div>
+            {searchError && (
+              <p className="search-error" role="alert">
+                {searchError}
+              </p>
+            )}
+          </div>
         </div>
       </section>
 
@@ -366,143 +347,146 @@ setStatusMenuOpen(false);
         <section className="results-section">
           <h2>Search Results</h2>
 
-          <div
-            className="results-layout"
-            style={{
-              paddingBottom: `${extraBottomSpace}px`,
-            }}
-          >
-            <div ref={resultsGridRef} className="results-grid">
-              {bills.map((bill) => {
-                const chamber: ChamberName =
-                  bill.originChamberCode === "H" ||
-                  bill.chamber === "House"
-                    ? "House"
-                    : "Senate";
+          <div className="results-grid">
+            {bills.map((bill) => {
+              const chamber: ChamberName =
+                bill.originChamberCode === "H" ||
+                bill.chamber === "House"
+                  ? "House"
+                  : "Senate";
 
-                const billPrefix = chamber === "House" ? "H.R." : "S.";
+              const billPrefix = chamber === "House" ? "H.R." : "S.";
+              const congress = bill.congress ?? 118;
 
-                const congress = bill.congress ?? 118;
+              const billKey = `${congress}-${chamber}-${
+                bill.number || bill.id || bill.title
+              }`;
 
-                const billKey = `${congress}-${chamber}-${
-                  bill.number || bill.id || bill.title
-                }`;
+              const billPreview =
+                bill.summary ||
+                bill.summary_text ||
+                bill.summaryText ||
+                bill.bill_text_cleaned ||
+                "No summary or bill text is currently available.";
 
-                const billPreview =
-                  bill.summary ||
-                  bill.summary_text ||
-                  bill.summaryText ||
-                  bill.bill_text_cleaned ||
-                  "No summary or bill text is currently available.";
+              const pdfUrl =
+                bill.pdf_url ||
+                bill.bill_pdf_url ||
+                bill.pdfUrl ||
+                null;
 
-                const pdfUrl =
-                  bill.pdf_url ||
-                  bill.bill_pdf_url ||
-                  bill.pdfUrl ||
-                  null;
+              const truncatedPreview =
+                billPreview.length > 350
+                  ? `${billPreview.slice(0, 350)}...`
+                  : billPreview;
 
-                const truncatedPreview =
-                  billPreview.length > 350
-                    ? `${billPreview.slice(0, 350)}...`
-                    : billPreview;
+              function selectBill() {
+                if (!pdfUrl) return;
 
-                function selectBill() {
-                  setSelectedBillKey(billKey);
-                  setSelectedPdf(pdfUrl);
+                setSelectedBillKey(billKey);
+                setSelectedPdf(pdfUrl);
+              }
 
-                  const cardElement = cardRefs.current[billKey];
-                  const layoutElement =
-                    document.querySelector<HTMLElement>(".results-layout");
+              return (
+                <article
+                  key={billKey}
+                  className={`bill-card ${
+                    selectedBillKey === billKey ? "selected" : ""
+                  }`}
+                >
+                  <div className="bill-card-top">
+                    <span className="bill-status introduced">
+                      Introduced
+                    </span>
 
-                  if (cardElement && layoutElement) {
-                    const cardRect = cardElement.getBoundingClientRect();
-                    const layoutRect = layoutElement.getBoundingClientRect();
+                    <div className="track-btn">
+                      <Star size={16} />
+                      <span>Track</span>
+                    </div>
+                  </div>
 
-                    setPdfTop(cardRect.top - layoutRect.top);
-                  }
-                }
+                  <h3
+                    className={pdfUrl ? "bill-link" : ""}
+                    onClick={pdfUrl ? selectBill : undefined}
+                  >
+                    {bill.title}
+                  </h3>
 
-                return (
-              <article
-  ref={(element) => {
-    cardRefs.current[billKey] = element;
-  }}
-  key={billKey}
-  className={`bill-card ${
-    selectedBillKey === billKey ? "selected" : ""
-  }`}
->
-  <div className="bill-card-top">
-    <span className="bill-status introduced">
-      Introduced
-    </span>
+                  <p className="bill-meta">
+                    <span>
+                      {billPrefix} {bill.number}
+                    </span>
 
-    <div className="track-btn">
-  <Star size={16} />
-  <span>Track</span>
-</div>
-  </div>
+                    <span className="meta-dot">•</span>
+                    <span>{congress}th Congress</span>
 
-  <h3
-    className={pdfUrl ? "bill-link" : ""}
-    onClick={pdfUrl ? selectBill : undefined}
-  >
-    {bill.title}
-  </h3>
+                    <span className="meta-dot">•</span>
+                    <span>{chamber}</span>
+                  </p>
 
-  <p className="bill-meta">
-    <span>{billPrefix} {bill.number}</span>
-    <span className="meta-dot">•</span>
-    <span>{congress}th Congress</span>
-    <span className="meta-dot">•</span>
-    <span>{chamber}</span>
-  </p>
+                  <p>{truncatedPreview}</p>
 
-  <p>{truncatedPreview}</p>
+                  {!pdfUrl && (
+                    <p className="no-pdf">
+                      PDF not available for this result.
+                    </p>
+                  )}
 
-  {!pdfUrl && (
-    <p className="no-pdf">
-      PDF not available for this result.
-    </p>
-  )}
+                  <div className="bill-footer">
+                    <div className="footer-item">
+                      <span className="footer-label">
+                        Last Updated
+                      </span>
 
-  {selectedBillKey === billKey && selectedPdf && (
-    <div className="mobile-pdf-panel">
-      <PdfViewer url={selectedPdf} />
-    </div>
-  )}
-
-  <div className="bill-footer">
-    <div className="footer-item">
-      <span className="footer-label">
-        Last Updated
-      </span>
-
-      <span className="footer-value">
-        July 12, 2026
-      </span>
-    </div>
-  </div>
-</article>
-                );
-              })}
-            </div>
-
-            <div
-              ref={pdfPanelRef}
-              className="pdf-panel"
-              style={{ top: `${pdfTop}px` }}
-            >
-              {selectedPdf ? (
-                <PdfViewer url={selectedPdf} />
-              ) : (
-                <div className="pdf-placeholder">
-                  Select a bill with an available PDF to view it.
-                </div>
-              )}
-            </div>
+                      <span className="footer-value">
+                        July 12, 2026
+                      </span>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
+      )}
+
+      {selectedPdf && (
+        <div
+          className="pdf-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closePdfModal();
+            }
+          }}
+        >
+          <section
+            className="pdf-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Bill PDF viewer"
+          >
+            <header className="pdf-modal-header">
+              <div>
+                <p className="pdf-modal-eyebrow">Bill document</p>
+                <h2>PDF Preview</h2>
+              </div>
+
+              <button
+                type="button"
+                className="pdf-modal-close"
+                onClick={closePdfModal}
+                aria-label="Close PDF viewer"
+              >
+                <X size={22} />
+              </button>
+            </header>
+
+            <div className="pdf-modal-content">
+              <PdfViewer url={getPdfViewerUrl(selectedPdf)} />
+            </div>
+          </section>
+        </div>
       )}
     </main>
   );

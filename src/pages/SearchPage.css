@@ -485,6 +485,129 @@ font-size:.62rem;
 
   margin-bottom:18px;
 }
+.results-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  width: 100%;
+  gap: 20px;
+}
+
+.bill-card {
+  width: 100%;
+}
+
+.pdf-panel,
+.mobile-pdf-panel {
+  display: none;
+}
+
+.pdf-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(8, 10, 14, 0.78);
+  backdrop-filter: blur(8px);
+}
+
+.pdf-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(1100px, 96vw);
+  height: min(900px, 92vh);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 20px;
+  background: #171a21;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5);
+}
+
+.pdf-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  padding: 18px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pdf-modal-header h2 {
+  margin: 2px 0 0;
+  color: #fff;
+  font-size: 1.15rem;
+}
+
+.pdf-modal-eyebrow {
+  margin: 0;
+  color: #98a2b3;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pdf-modal-close {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  cursor: pointer;
+}
+
+.pdf-modal-close:hover {
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.pdf-modal-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px;
+  background: #e9eaed;
+}
+
+.pdf-modal-content .pdf-viewer {
+  display: flex;
+  justify-content: center;
+}
+
+.pdf-modal-content .react-pdf__Page {
+  margin-bottom: 18px;
+  box-shadow: 0 7px 24px rgba(0, 0, 0, 0.14);
+}
+
+.pdf-modal-content canvas {
+  max-width: 100%;
+  height: auto !important;
+}
+
+@media (max-width: 700px) {
+  .pdf-modal-backdrop {
+    padding: 0;
+  }
+
+  .pdf-modal {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .pdf-modal-header {
+    padding: 14px 16px;
+  }
+
+  .pdf-modal-content {
+    padding: 10px;
+  }
+}
 
 @media (max-width: 680px) {
   .filters-card {
