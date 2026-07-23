@@ -587,7 +587,125 @@ font-size:.62rem;
   max-width: 100%;
   height: auto !important;
 }
+/* ===========================
+   Cosponsor Filter
+=========================== */
 
+.cosponsor-filter {
+  position: relative;
+}
+
+.cosponsor-filter-menu {
+  padding: 14px;
+}
+
+.cosponsor-autocomplete {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cosponsor-filter-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #d7dce5;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: #fff;
+}
+
+.cosponsor-filter-input-row input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.95rem;
+  color: #1f2937;
+}
+
+.cosponsor-filter-input-row svg {
+  color: #64748b;
+}
+
+.cosponsor-clear {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  transition: color 0.2s;
+}
+
+.cosponsor-clear:hover {
+  color: #111827;
+}
+
+.cosponsor-loading,
+.cosponsor-empty {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.cosponsor-options {
+  display: flex;
+  flex-direction: column;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: white;
+}
+
+.cosponsor-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: white;
+  text-align: left;
+  cursor: pointer;
+  transition: background .15s ease;
+}
+
+.cosponsor-option + .cosponsor-option {
+  border-top: 1px solid #f1f5f9;
+}
+
+.cosponsor-option:hover {
+  background: #f8fafc;
+}
+
+.cosponsor-option strong {
+  font-size: .95rem;
+  color: #111827;
+  font-weight: 600;
+}
+
+.cosponsor-option span {
+  font-size: .82rem;
+  color: #64748b;
+}
+
+.cosponsor-filter-note {
+  margin: 0;
+  font-size: .75rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.search-error {
+  margin-top: 8px;
+  color: #dc2626;
+  font-size: .9rem;
+}
 @media (max-width: 700px) {
   .pdf-modal-backdrop {
     padding: 0;

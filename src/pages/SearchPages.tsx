@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Search, Star, X } from "lucide-react";
 import { searchBills } from "../api/bills";
 import type { Bill } from "../types/bill";
@@ -7,6 +7,17 @@ import "./SearchPage.css";
 
 type CongressNumber = 118 | 119;
 type ChamberName = "House" | "Senate";
+
+type Cosponsor = {
+  bioguideId: string;
+  fullName: string;
+  firstName?: string;
+  lastName?: string;
+  party?: string;
+  state?: string;
+  district?: string | number | null;
+  originChamberCode?: "H" | "S";
+};
 
 const STATUS_OPTIONS = [
   "Introduced",
@@ -21,6 +32,17 @@ export default function SearchPage() {
   const [bills, setBills] = useState<Bill[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+
+  const [cosponsorQuery, setCosponsorQuery] = useState("");
+  const [cosponsorOptions, setCosponsorOptions] = useState<Cosponsor[]>([]);
+  const [selectedCosponsor, setSelectedCosponsor] =
+    useState<Cosponsor | null>(null);
+  const [cosponsorLoading, setCosponsorLoading] = useState(false);
+  const [cosponsorError, setCosponsorError] = useState<string | null>(null);
+  const [cosponsorSearchComplete, setCosponsorSearchComplete] = useState(false);
+  const [cosponsorMenuOpen, setCosponsorMenuOpen] = useState(false);
+  const cosponsorRequestId = useRef(0);
+  const selectedCosponsorRef = useRef<Cosponsor | null>(null);
 
   const [selectedCongresses, setSelectedCongresses] = useState<
     CongressNumber[]
@@ -70,13 +92,40 @@ export default function SearchPage() {
     setCongressMenuOpen(false);
     setChamberMenuOpen(false);
     setStatusMenuOpen(false);
+    setCosponsorMenuOpen(false);
+  }
+
+  function selectCosponsor(cosponsor: Cosponsor) {
+    selectedCosponsorRef.current = cosponsor;
+    setSelectedCosponsor(cosponsor);
+    setCosponsorQuery(cosponsor.fullName);
+    setCosponsorOptions([]);
+    setCosponsorMenuOpen(false);
+    setSelectedCongresses([119]);
+
+    if (cosponsor.originChamberCode === "H") {
+      setSelectedChambers(["House"]);
+    } else if (cosponsor.originChamberCode === "S") {
+      setSelectedChambers(["Senate"]);
+    }
+  }
+
+  function clearCosponsor() {
+    selectedCosponsorRef.current = null;
+    setSelectedCosponsor(null);
+    setCosponsorQuery("");
+    setCosponsorOptions([]);
+    setCosponsorError(null);
+    setCosponsorSearchComplete(false);
+    setCosponsorMenuOpen(false);
   }
 
   async function handleSearch() {
     const cleanedQuery = query.trim();
+    const activeCosponsor = selectedCosponsorRef.current ?? selectedCosponsor;
 
-    if (!cleanedQuery) {
-      setSearchError("Enter a search query.");
+    if (!cleanedQuery && !activeCosponsor) {
+      setSearchError("Enter a search query or select a cosponsor.");
       return;
     }
 
@@ -98,8 +147,9 @@ export default function SearchPage() {
 
     try {
       const results = await searchBills(cleanedQuery, {
-        congresses: selectedCongresses,
+        congresses: activeCosponsor ? [119] : selectedCongresses,
         chambers: selectedChambers,
+        cosponsor_bioguide_id: activeCosponsor?.bioguideId ?? null,
       });
 
       setBills(results);
@@ -131,6 +181,133 @@ export default function SearchPage() {
       pdfUrl,
     )}`;
   }
+
+  useEffect(() => {
+    const cleanedQuery = cosponsorQuery.trim();
+
+    if (selectedCosponsor && cleanedQuery === selectedCosponsor.fullName) {
+      setCosponsorOptions([]);
+      setCosponsorError(null);
+      setCosponsorSearchComplete(false);
+      setCosponsorLoading(false);
+      return;
+    }
+
+    // Keep the dropdown open while the user types. The API requires at least
+    // two characters, so one character should show guidance instead of closing.
+    if (cleanedQuery.length < 2) {
+      cosponsorRequestId.current += 1;
+      setCosponsorOptions([]);
+      setCosponsorError(null);
+      setCosponsorSearchComplete(false);
+      setCosponsorLoading(false);
+      return;
+    }
+
+    const requestId = ++cosponsorRequestId.current;
+    const controller = new AbortController();
+
+    const timeoutId = window.setTimeout(async () => {
+      setCosponsorLoading(true);
+      setCosponsorError(null);
+      setCosponsorSearchComplete(false);
+
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL;
+
+        if (!apiUrl) {
+          throw new Error("VITE_API_URL is not configured.");
+        }
+
+        const response = await fetch(
+          `${apiUrl}/cosponsors?query=${encodeURIComponent(cleanedQuery)}&limit=10`,
+          { signal: controller.signal },
+        );
+
+        if (!response.ok) {
+          const body = await response.text();
+          throw new Error(
+            `Could not load cosponsors (${response.status})${body ? `: ${body}` : ""}`,
+          );
+        }
+
+        const data: unknown = await response.json();
+
+        if (requestId !== cosponsorRequestId.current) return;
+
+        const rows = Array.isArray(data)
+          ? data
+          : data && typeof data === "object" && Array.isArray((data as { results?: unknown[] }).results)
+            ? (data as { results: unknown[] }).results
+            : [];
+
+        const normalized = rows
+          .map((row): Cosponsor | null => {
+            if (!row || typeof row !== "object") return null;
+
+            const item = row as Record<string, unknown>;
+            const bioguideId = String(
+              item.bioguideId ?? item.bioguide_id ?? item.bioguideid ?? "",
+            ).trim();
+
+            const fullName = String(
+              item.fullName ??
+                item.full_name ??
+                item.fullname ??
+                [item.firstName ?? item.first_name, item.lastName ?? item.last_name]
+                  .filter(Boolean)
+                  .join(" "),
+            ).trim();
+
+            if (!bioguideId || !fullName) return null;
+
+            const chamberCode =
+              item.originChamberCode ??
+              item.origin_chamber_code ??
+              item.originchambercode;
+
+            return {
+              bioguideId,
+              fullName,
+              firstName: String(item.firstName ?? item.first_name ?? "") || undefined,
+              lastName: String(item.lastName ?? item.last_name ?? "") || undefined,
+              party: String(item.party ?? "") || undefined,
+              state: String(item.state ?? "") || undefined,
+              district:
+                item.district === null || item.district === undefined
+                  ? null
+                  : String(item.district),
+              originChamberCode:
+                chamberCode === "H" ? "H" : chamberCode === "S" ? "S" : undefined,
+            };
+          })
+          .filter((item): item is Cosponsor => item !== null);
+
+        setCosponsorOptions(normalized);
+        setCosponsorSearchComplete(true);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+
+        console.error("Cosponsor search failed:", error);
+        setCosponsorOptions([]);
+        setCosponsorSearchComplete(true);
+        setCosponsorError(
+          error instanceof Error ? error.message : "Could not load cosponsors.",
+        );
+      } finally {
+        if (requestId === cosponsorRequestId.current) {
+          setCosponsorLoading(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [cosponsorQuery, selectedCosponsor]);
 
   useEffect(() => {
     if (!selectedPdf) return;
@@ -181,6 +358,7 @@ export default function SearchPage() {
                   setCongressMenuOpen((current) => !current);
                   setChamberMenuOpen(false);
                   setStatusMenuOpen(false);
+                  setCosponsorMenuOpen(false);
                 }}
                 aria-expanded={congressMenuOpen}
               >
@@ -205,6 +383,7 @@ export default function SearchPage() {
                       type="checkbox"
                       checked={selectedCongresses.includes(118)}
                       onChange={() => toggleCongress(118)}
+                      disabled={Boolean(selectedCosponsor)}
                     />
                     <span>118th Congress</span>
                   </label>
@@ -229,6 +408,7 @@ export default function SearchPage() {
                   setChamberMenuOpen((current) => !current);
                   setCongressMenuOpen(false);
                   setStatusMenuOpen(false);
+                  setCosponsorMenuOpen(false);
                 }}
                 aria-expanded={chamberMenuOpen}
               >
@@ -275,6 +455,7 @@ export default function SearchPage() {
                   setStatusMenuOpen((current) => !current);
                   setCongressMenuOpen(false);
                   setChamberMenuOpen(false);
+                  setCosponsorMenuOpen(false);
                 }}
                 aria-expanded={statusMenuOpen}
               >
@@ -306,7 +487,142 @@ export default function SearchPage() {
               )}
             </div>
           </div>
+            <div className="filter-dropdown cosponsor-filter">
+              <button
+                type="button"
+                className="filter-dropdown-trigger"
+                onClick={() => {
+                  setCosponsorMenuOpen((current) => !current);
+                  setCongressMenuOpen(false);
+                  setChamberMenuOpen(false);
+                  setStatusMenuOpen(false);
+                }}
+                aria-expanded={cosponsorMenuOpen}
+              >
+                <span>
+                  Cosponsor
+                  <strong>
+                    {selectedCosponsor?.fullName ?? "Any"}
+                  </strong>
+                </span>
 
+                <span aria-hidden="true">⌄</span>
+              </button>
+
+              {cosponsorMenuOpen && (
+                <div className="filter-dropdown-menu cosponsor-filter-menu">
+                  <div className="cosponsor-autocomplete">
+                    <div className="cosponsor-filter-input-row">
+                      <Search size={17} aria-hidden="true" />
+
+                      <input
+                        id="cosponsor-search"
+                        value={cosponsorQuery}
+                        onChange={(event) => {
+                          setCosponsorQuery(event.target.value);
+
+                          if (
+                            selectedCosponsor &&
+                            event.target.value.trim() !== selectedCosponsor.fullName
+                          ) {
+                            selectedCosponsorRef.current = null;
+                            setSelectedCosponsor(null);
+                          }
+
+                          setCosponsorMenuOpen(true);
+                        }}
+                        placeholder="Type a name"
+                        autoComplete="off"
+                        autoFocus
+                      />
+
+                      {(selectedCosponsor || cosponsorQuery) && (
+                        <button
+                          type="button"
+                          className="cosponsor-clear"
+                          onClick={clearCosponsor}
+                          aria-label="Clear cosponsor filter"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+
+                    {cosponsorQuery.trim().length === 1 && !cosponsorLoading && (
+                      <p className="cosponsor-loading">Type one more letter.</p>
+                    )}
+
+                    {cosponsorLoading && (
+                      <p className="cosponsor-loading">Searching...</p>
+                    )}
+
+                    {cosponsorError && (
+                      <p className="search-error" role="alert">
+                        {cosponsorError}
+                      </p>
+                    )}
+
+                    {cosponsorSearchComplete &&
+                      !cosponsorLoading &&
+                      !cosponsorError &&
+                      cosponsorOptions.length === 0 && (
+                        <p className="cosponsor-loading">No cosponsors found.</p>
+                      )}
+
+                    {cosponsorOptions.length > 0 && (
+                      <div className="cosponsor-options" role="listbox">
+                        {cosponsorOptions.map((cosponsor) => {
+                          const details = [
+                            cosponsor.party,
+                            cosponsor.state,
+                            cosponsor.originChamberCode === "H"
+                              ? "House"
+                              : cosponsor.originChamberCode === "S"
+                                ? "Senate"
+                                : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ");
+
+                          return (
+                            <button
+                              type="button"
+                              className="cosponsor-option"
+                              key={`${cosponsor.bioguideId}-${cosponsor.originChamberCode ?? ""}`}
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                selectCosponsor(cosponsor);
+                              }}
+                              role="option"
+                              aria-selected={
+                                selectedCosponsor?.bioguideId ===
+                                cosponsor.bioguideId
+                              }
+                            >
+                              <strong>{cosponsor.fullName}</strong>
+                              {details && <span>{details}</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {!cosponsorLoading &&
+                      cosponsorQuery.trim().length >= 2 &&
+                      cosponsorOptions.length === 0 &&
+                      !selectedCosponsor && (
+                        <p className="cosponsor-empty">
+                          No matching cosponsors found.
+                        </p>
+                      )}
+
+                    <p className="cosponsor-filter-note">
+                      Cosponsor filtering currently uses 119th Congress data.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           <div className="search-card">
             <label htmlFor="bill-search">Enter your search criteria</label>
 
@@ -317,7 +633,11 @@ export default function SearchPage() {
                 id="bill-search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder='Try "AI and Taiwan" or "election integrity"'
+                placeholder={
+                  selectedCosponsor
+                    ? "Optional: search within this cosponsor’s bills"
+                    : 'Try "AI and Taiwan" or "election integrity"'
+                }
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !loading) {
                     handleSearch();
@@ -330,7 +650,11 @@ export default function SearchPage() {
                 onClick={handleSearch}
                 disabled={loading}
               >
-                {loading ? "Searching..." : "Search"}
+                {loading
+                  ? "Loading..."
+                  : selectedCosponsor && !query.trim()
+                    ? "View bills"
+                    : "Search"}
               </button>
             </div>
 
@@ -345,7 +669,13 @@ export default function SearchPage() {
 
       {bills.length > 0 && (
         <section className="results-section">
-          <h2>Search Results</h2>
+          <h2>
+            {selectedCosponsor
+              ? query.trim()
+                ? `Results for “${query.trim()}” within bills cosponsored by ${selectedCosponsor.fullName}`
+                : `Bills cosponsored by ${selectedCosponsor.fullName}`
+              : "Search Results"}
+          </h2>
 
           <div className="results-grid">
             {bills.map((bill) => {

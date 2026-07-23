@@ -3,13 +3,16 @@ import type { Bill } from "../types/bill";
 export type CongressNumber = 118 | 119;
 export type ChamberName = "House" | "Senate";
 
-type SearchOptions = {
+export type SearchOptions = {
   congresses: CongressNumber[];
   chambers: ChamberName[];
+  cosponsor_bioguide_id?: string | null;
+  match_count?: number;
+  match_threshold?: number;
 };
 
 type SearchResponse = {
-  results: Bill[];
+  results?: Bill[];
 };
 
 export async function searchBills(
@@ -28,23 +31,30 @@ export async function searchBills(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      query,
-      match_count: 10,
-      match_threshold: 0,
+      query: query.trim(),
+      match_count: options.match_count ?? 25,
+      match_threshold: options.match_threshold ?? 0,
       congresses: options.congresses,
       chambers: options.chambers,
+      cosponsor_bioguide_id: options.cosponsor_bioguide_id ?? null,
     }),
   });
 
-  const body = await response.json().catch(() => null);
+  const body: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(
-      body?.detail || `Search failed with status ${response.status}`,
-    );
+    const detail =
+      body && typeof body === "object" && "detail" in body
+        ? String((body as { detail?: unknown }).detail)
+        : null;
+
+    throw new Error(detail || `Search failed with status ${response.status}`);
+  }
+
+  if (!body || typeof body !== "object") {
+    return [];
   }
 
   const data = body as SearchResponse;
-
-  return data.results ?? [];
+  return Array.isArray(data.results) ? data.results : [];
 }
