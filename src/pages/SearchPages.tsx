@@ -19,13 +19,20 @@ type Cosponsor = {
   originChamberCode?: "H" | "S";
 };
 
-const STATUS_OPTIONS = [
-  "Introduced",
-  "Passed Senate",
-  "Passed House",
-  "President",
-  "Became Law",
+const ACTION_OPTIONS = [
+  { value: "introduced", label: "Introduced" },
+  { value: "committee", label: "Committee Action" },
+  { value: "house_floor", label: "House Floor Action" },
+  { value: "senate_floor", label: "Senate Floor Action" },
+  { value: "passed_house", label: "Passed House" },
+  { value: "passed_senate", label: "Passed Senate" },
+  { value: "passed_both", label: "Passed Both Chambers" },
+  { value: "sent_to_president", label: "Sent to President" },
+  { value: "vetoed", label: "Vetoed" },
+  { value: "became_law", label: "Became Law" },
 ] as const;
+
+type ActionCategory = (typeof ACTION_OPTIONS)[number]["value"];
 
 export default function SearchPage() {
   const [query, setQuery] = useState("");
@@ -53,9 +60,7 @@ export default function SearchPage() {
     "Senate",
   ]);
 
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([
-    ...STATUS_OPTIONS,
-  ]);
+  const [selectedActions, setSelectedActions] = useState<ActionCategory[]>([]);
 
   const [congressMenuOpen, setCongressMenuOpen] = useState(false);
   const [chamberMenuOpen, setChamberMenuOpen] = useState(false);
@@ -80,12 +85,23 @@ export default function SearchPage() {
     );
   }
 
-  function toggleStatus(status: string) {
-    setSelectedStatuses((current) =>
-      current.includes(status)
-        ? current.filter((item) => item !== status)
-        : [...current, status],
-    );
+  function toggleAction(action: ActionCategory) {
+    setSelectedActions((current) => {
+      const next = current.includes(action)
+        ? current.filter((item) => item !== action)
+        : [...current, action];
+
+      // Action data is currently available only for the 119th Congress.
+      if (next.length > 0) {
+        setSelectedCongresses([119]);
+      }
+
+      return next;
+    });
+  }
+
+  function clearActions() {
+    setSelectedActions([]);
   }
 
   function closeAllFilterMenus() {
@@ -129,6 +145,11 @@ export default function SearchPage() {
       return;
     }
 
+    if (selectedActions.length > 0 && !cleanedQuery) {
+      setSearchError("Enter a search query to use the action filter.");
+      return;
+    }
+
     if (selectedCongresses.length === 0) {
       setSearchError("Select at least one Congress.");
       return;
@@ -150,6 +171,7 @@ export default function SearchPage() {
         congresses: activeCosponsor ? [119] : selectedCongresses,
         chambers: selectedChambers,
         cosponsor_bioguide_id: activeCosponsor?.bioguideId ?? null,
+        action_categories: selectedActions,
       });
 
       setBills(results);
@@ -383,7 +405,9 @@ export default function SearchPage() {
                       type="checkbox"
                       checked={selectedCongresses.includes(118)}
                       onChange={() => toggleCongress(118)}
-                      disabled={Boolean(selectedCosponsor)}
+                      disabled={
+                        Boolean(selectedCosponsor) || selectedActions.length > 0
+                      }
                     />
                     <span>118th Congress</span>
                   </label>
@@ -462,9 +486,9 @@ export default function SearchPage() {
                 <span>
                   Status
                   <strong>
-                    {selectedStatuses.length === STATUS_OPTIONS.length
-                      ? "All"
-                      : `${selectedStatuses.length} selected`}
+                    {selectedActions.length === 0
+                      ? "Any"
+                      : `${selectedActions.length} selected`}
                   </strong>
                 </span>
 
@@ -473,16 +497,29 @@ export default function SearchPage() {
 
               {statusMenuOpen && (
                 <div className="filter-dropdown-menu">
-                  {STATUS_OPTIONS.map((status) => (
-                    <label className="dropdown-option" key={status}>
+                  <label className="dropdown-option">
+                    <input
+                      type="checkbox"
+                      checked={selectedActions.length === 0}
+                      onChange={clearActions}
+                    />
+                    <span>Any action</span>
+                  </label>
+
+                  {ACTION_OPTIONS.map((action) => (
+                    <label className="dropdown-option" key={action.value}>
                       <input
                         type="checkbox"
-                        checked={selectedStatuses.includes(status)}
-                        onChange={() => toggleStatus(status)}
+                        checked={selectedActions.includes(action.value)}
+                        onChange={() => toggleAction(action.value)}
                       />
-                      <span>{status}</span>
+                      <span>{action.label}</span>
                     </label>
                   ))}
+
+                  <p className="cosponsor-filter-note">
+                    Action filtering currently uses 119th Congress data.
+                  </p>
                 </div>
               )}
             </div>
@@ -674,7 +711,11 @@ export default function SearchPage() {
               ? query.trim()
                 ? `Results for “${query.trim()}” within bills cosponsored by ${selectedCosponsor.fullName}`
                 : `Bills cosponsored by ${selectedCosponsor.fullName}`
-              : "Search Results"}
+              : selectedActions.length > 0
+                ? `Search Results · ${selectedActions.length} action filter${
+                    selectedActions.length === 1 ? "" : "s"
+                  }`
+                : "Search Results"}
           </h2>
 
           <div className="results-grid">

@@ -9,6 +9,7 @@ export type SearchOptions = {
   cosponsor_bioguide_id?: string | null;
   match_count?: number;
   match_threshold?: number;
+  action_categories?: string[];
 };
 
 type SearchResponse = {
@@ -37,6 +38,7 @@ export async function searchBills(
       congresses: options.congresses,
       chambers: options.chambers,
       cosponsor_bioguide_id: options.cosponsor_bioguide_id ?? null,
+      action_categories: options.action_categories ?? [],
     }),
   });
 
