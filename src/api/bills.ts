@@ -10,6 +10,7 @@ export type SearchOptions = {
   match_count?: number;
   match_threshold?: number;
   action_categories?: string[];
+  sponsor_bioguide_id?: string | null;
 };
 
 type SearchResponse = {
@@ -39,6 +40,7 @@ export async function searchBills(
       chambers: options.chambers,
       cosponsor_bioguide_id: options.cosponsor_bioguide_id ?? null,
       action_categories: options.action_categories ?? [],
+      sponsor_bioguide_id: options.sponsor_bioguide_id ?? null
     }),
   });
 

@@ -700,7 +700,9 @@ font-size:.62rem;
   color: #94a3b8;
   line-height: 1.4;
 }
-
+.sponsor-filter{
+  margin-top: 20px;
+}
 .search-error {
   margin-top: 8px;
   color: #dc2626;
