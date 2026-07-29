@@ -178,13 +178,8 @@ export default function SearchPage() {
     const activeCosponsor = selectedCosponsorRef.current ?? selectedCosponsor;
     const activeSponsor = selectedSponsorRef.current ?? selectedSponsor;
 
-    if (!cleanedQuery && !activeCosponsor && !activeSponsor) {
+    if (!cleanedQuery && !activeCosponsor && !activeSponsor && selectedActions.length === 0) {
       setSearchError("Enter a search query or select a representative.");
-      return;
-    }
-
-    if (selectedActions.length > 0 && !cleanedQuery) {
-      setSearchError("Enter a search query to use the action filter.");
       return;
     }
 
