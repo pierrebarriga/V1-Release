@@ -519,7 +519,7 @@ export default function SearchPage() {
   return (
     <main className="app-shell">
       <nav className="top-nav">
-        <div className="brand">LegiSearch.AI</div>
+        <div className="brand">Roll Call</div>
       </nav>
 
       <section className="hero">
